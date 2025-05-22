@@ -4,6 +4,7 @@ mod server;
 
 use crate::database::init_database;
 use crate::server::{config::Config, start_server};
+use anyhow::Context;
 use log::{error, info};
 use std::process;
 
@@ -13,37 +14,36 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     // Initialize configuration
-    match Config::init() {
-        Ok(config) => {
-            info!("Configuration loaded successfully");
-            info!("Server port: {}", config.server_port);
-            info!("Database path: {}", config.database_path);
-            info!("Font path: {}", config.font_path);
-        }
-        Err(e) => {
-            error!("Failed to load configuration: {}", e);
-            process::exit(1);
-        }
+    if let Err(e) = Config::init().context("Failed to initialize configuration") {
+        error!("Configuration error: {:#}", e);
+        process::exit(1);
     }
 
-    // Get configuration
     let config = Config::get().expect("Configuration should be initialized");
+    info!("Configuration loaded successfully");
+    info!("Server port: {}", config.server_port);
+    info!("Database path: {}", config.database_path);
+    info!("Font path: {}", config.font_path);
 
     // Initialize database
-    let database = match init_database(&config.database_path) {
-        Ok(db) => {
-            info!("Database initialized successfully");
-            db
-        }
-        Err(e) => {
-            error!("Failed to initialize database: {}", e);
-            process::exit(1);
-        }
-    };
+    let database =
+        match init_database(&config.database_path).context("Failed to initialize database") {
+            Ok(db) => {
+                info!("Database initialized successfully");
+                db
+            }
+            Err(e) => {
+                error!("Database initialization error: {:#}", e);
+                process::exit(1);
+            }
+        };
 
     // Start the web server
     info!("Starting server...");
-    start_server(database).await
+    start_server(database).await.map_err(|e| {
+        error!("Server error: {:#}", e);
+        std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+    })
 }
 
 #[cfg(test)]

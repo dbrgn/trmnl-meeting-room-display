@@ -1,6 +1,7 @@
 use actix_web::{HttpRequest, HttpResponse, web};
+use anyhow::Context;
 use base64::{Engine as _, engine::general_purpose};
-use log::{error, info};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -35,7 +36,8 @@ pub struct Device {
 /// Extract and validate device ID and access token from headers
 pub fn validate_headers(req: &HttpRequest) -> Result<String, AppError> {
     // Get config for access token validation
-    let config = Config::get().map_err(AppError::ConfigError)?;
+    let config = Config::get()
+        .map_err(|e| AppError::ConfigError(format!("Failed to get configuration: {}", e)))?;
 
     // Extract device ID from header
     let device_id = req
@@ -43,7 +45,7 @@ pub fn validate_headers(req: &HttpRequest) -> Result<String, AppError> {
         .get("ID")
         .ok_or_else(|| AppError::AuthError("Missing ID header".to_string()))?
         .to_str()
-        .map_err(|_| AppError::AuthError("Invalid ID header format".to_string()))?
+        .map_err(|e| AppError::AuthError(format!("Invalid ID header format: {}", e)))?
         .to_string();
 
     // Validate access token
@@ -52,7 +54,7 @@ pub fn validate_headers(req: &HttpRequest) -> Result<String, AppError> {
         .get("Access-Token")
         .ok_or_else(|| AppError::AuthError("Missing Access-Token header".to_string()))?
         .to_str()
-        .map_err(|_| AppError::AuthError("Invalid Access-Token header format".to_string()))?;
+        .map_err(|e| AppError::AuthError(format!("Invalid Access-Token header format: {}", e)))?;
 
     if token != config.access_token {
         return Err(AppError::AuthError("Invalid Access-Token".to_string()));
@@ -71,10 +73,15 @@ pub async fn setup_handler(
     info!("Processing setup request for device: {}", device_id);
 
     // Check if device exists before registration to determine if it's new
-    let exists = db.device_exists(&device_id)?;
+    let exists = db
+        .device_exists(&device_id)
+        .with_context(|| format!("Failed to check if device exists: {}", device_id))
+        .map_err(AppError::from)?;
 
     // Register device in database
-    db.register_device(&device_id)?;
+    db.register_device(&device_id)
+        .with_context(|| format!("Failed to register device: {}", device_id))
+        .map_err(AppError::from)?;
 
     let message = if !exists {
         format!("Device {} registered successfully", device_id)
@@ -91,12 +98,17 @@ pub async fn display_handler(
     db: web::Data<Arc<Database>>,
 ) -> Result<HttpResponse, AppError> {
     let device_id = validate_headers(&req)?;
-    let config = Config::get().map_err(AppError::ConfigError)?;
+    let config = Config::get()
+        .context("Failed to get configuration")
+        .map_err(AppError::from)?;
 
     info!("Processing display request for device: {}", device_id);
 
     // Check if device is registered
-    let device = db.get_device(&device_id)?;
+    let device = db
+        .get_device(&device_id)
+        .with_context(|| format!("Failed to check if device exists: {}", device_id))
+        .map_err(AppError::from)?;
     if device.is_none() {
         return Err(AppError::AuthError(format!(
             "Device {} not registered",
@@ -112,10 +124,9 @@ pub async fn display_handler(
     };
 
     // Generate BMP image
-    let bmp_data = generate_bmp(&image_config).map_err(|e| {
-        error!("Error generating BMP: {}", e);
-        AppError::ImageError(e)
-    })?;
+    let bmp_data = generate_bmp(&image_config)
+        .with_context(|| format!("Failed to generate BMP image for device {}", device_id))
+        .map_err(AppError::from)?;
 
     // Encode to base64
     let base64_image = general_purpose::STANDARD.encode(&bmp_data);

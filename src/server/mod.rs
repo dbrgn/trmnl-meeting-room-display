@@ -3,6 +3,7 @@ pub mod errors;
 pub mod handlers;
 
 use actix_web::{App, HttpServer, middleware, web};
+use anyhow::{Context, Result};
 use log::info;
 use std::sync::Arc;
 
@@ -30,23 +31,20 @@ pub fn create_app(
 }
 
 /// Start the server with the given database connection
-pub async fn start_server(database: Arc<Database>) -> std::io::Result<()> {
+pub async fn start_server(database: Arc<Database>) -> Result<()> {
     // Get configuration
-    let config = Config::get().map_err(|e| {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Failed to load configuration: {}", e),
-        )
-    })?;
+    let config = Config::get().context("Failed to load configuration")?;
 
     let port = config.server_port;
     info!("Starting server at http://localhost:{}", port);
 
     // Start HTTP server
     HttpServer::new(move || create_app(database.clone()).wrap(middleware::Logger::default()))
-        .bind(("127.0.0.1", port))?
+        .bind(("127.0.0.1", port))
+        .context("Failed to bind to port")?
         .run()
         .await
+        .context("Server error")
 }
 
 /// Create test app for testing

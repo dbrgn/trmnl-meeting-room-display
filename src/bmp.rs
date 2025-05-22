@@ -1,46 +1,10 @@
+use anyhow::{Context, Result};
 use image::{ImageBuffer, Luma, codecs::bmp::BmpEncoder};
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
-use std::error::Error;
-use std::fmt;
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::Path;
-
-/// Errors that can occur during BMP image generation
-#[derive(Debug)]
-pub enum BmpError {
-    /// Error when opening or reading from files
-    IoError(std::io::Error),
-    /// Error when loading or processing fonts
-    FontError(String),
-    /// Error when encoding image data
-    ImageError(image::error::ImageError),
-}
-
-impl fmt::Display for BmpError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            BmpError::IoError(e) => write!(f, "I/O error: {}", e),
-            BmpError::FontError(e) => write!(f, "Font error: {}", e),
-            BmpError::ImageError(e) => write!(f, "Image error: {}", e),
-        }
-    }
-}
-
-impl Error for BmpError {}
-
-impl From<std::io::Error> for BmpError {
-    fn from(error: std::io::Error) -> Self {
-        BmpError::IoError(error)
-    }
-}
-
-impl From<image::error::ImageError> for BmpError {
-    fn from(error: image::error::ImageError) -> Self {
-        BmpError::ImageError(error)
-    }
-}
 
 /// Configuration for image generation
 pub struct ImageConfig {
@@ -72,7 +36,7 @@ impl Default for ImageConfig {
 }
 
 /// Generate a monochrome BMP with text using the given configuration
-pub fn generate_bmp(config: &ImageConfig) -> Result<Vec<u8>, BmpError> {
+pub fn generate_bmp(config: &ImageConfig) -> Result<Vec<u8>> {
     // Create the image buffer
     let mut img = ImageBuffer::<Luma<u8>, Vec<u8>>::new(config.width, config.height);
 
@@ -84,10 +48,13 @@ pub fn generate_bmp(config: &ImageConfig) -> Result<Vec<u8>, BmpError> {
     // Load font
     let font_path = Path::new(&config.font_path);
     let mut font_data = Vec::new();
-    File::open(font_path)?.read_to_end(&mut font_data)?;
+    File::open(font_path)
+        .with_context(|| format!("Failed to open font file at {}", &config.font_path))?
+        .read_to_end(&mut font_data)
+        .context("Failed to read font data")?;
 
     let font = Font::try_from_bytes(&font_data)
-        .ok_or_else(|| BmpError::FontError("Failed to load font".to_string()))?;
+        .ok_or_else(|| anyhow::anyhow!("Failed to parse font data"))?;
 
     // Configure text scale (font size)
     let scale = Scale {
@@ -148,13 +115,13 @@ pub fn generate_bmp(config: &ImageConfig) -> Result<Vec<u8>, BmpError> {
             config.height,
             image::ColorType::L8,
         )
-        .map_err(BmpError::ImageError)?;
+        .context("Failed to encode BMP image")?;
 
     Ok(cursor.into_inner())
 }
 
 /// Generate a monochrome 800x480 BMP with "hello world" text using default settings
-pub fn generate_hello_world_bmp() -> Result<Vec<u8>, BmpError> {
+pub fn generate_hello_world_bmp() -> Result<Vec<u8>> {
     generate_bmp(&ImageConfig::default())
 }
 
@@ -203,9 +170,13 @@ mod tests {
     #[test]
     fn test_generate_bmp_with_default_config() {
         let result = generate_hello_world_bmp();
-        assert!(result.is_ok());
+        assert!(
+            result.is_ok(),
+            "Failed to generate BMP with default config: {:?}",
+            result.err()
+        );
         let bmp_data = result.unwrap();
-        assert!(!bmp_data.is_empty());
+        assert!(!bmp_data.is_empty(), "Generated BMP data is empty");
     }
 
     #[test]
@@ -220,8 +191,12 @@ mod tests {
         };
 
         let result = generate_bmp(&config);
-        assert!(result.is_ok());
+        assert!(
+            result.is_ok(),
+            "Failed to generate BMP with custom config: {:?}",
+            result.err()
+        );
         let bmp_data = result.unwrap();
-        assert!(!bmp_data.is_empty());
+        assert!(!bmp_data.is_empty(), "Generated BMP data is empty");
     }
 }

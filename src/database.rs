@@ -1,24 +1,8 @@
-use log::{error, info};
+use anyhow::{Context, Result};
+use log::info;
 use rusqlite::{Connection, params};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use thiserror::Error;
-
-/// Database-related errors
-#[derive(Error, Debug)]
-pub enum DatabaseError {
-    #[error("SQLite error: {0}")]
-    SqliteError(#[from] rusqlite::Error),
-
-    #[error("Connection error: {0}")]
-    ConnectionError(String),
-
-    #[error("Lock acquisition failed")]
-    LockError,
-}
-
-/// Result type for database operations
-pub type Result<T> = std::result::Result<T, DatabaseError>;
 
 /// Database connection and operations wrapper
 pub struct Database {
@@ -28,10 +12,8 @@ pub struct Database {
 impl Database {
     /// Create a new database connection and initialize tables
     pub fn new(db_path: &str) -> Result<Self> {
-        let conn = Connection::open(db_path).map_err(|e| {
-            error!("Failed to open database at {}: {}", db_path, e);
-            DatabaseError::SqliteError(e)
-        })?;
+        let conn = Connection::open(db_path)
+            .with_context(|| format!("Failed to open database at {}", db_path))?;
 
         // Create devices table if it doesn't exist
         conn.execute(
@@ -40,7 +22,8 @@ impl Database {
                 registered_at INTEGER NOT NULL
             )",
             [],
-        )?;
+        )
+        .context("Failed to create devices table")?;
 
         Ok(Self {
             conn: Mutex::new(conn),
@@ -49,50 +32,69 @@ impl Database {
 
     /// Register a new device or update an existing one
     pub fn register_device(&self, device_id: &str) -> Result<()> {
-        let conn = self.conn.lock().map_err(|_| {
-            error!("Failed to acquire lock on database connection");
-            DatabaseError::LockError
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire lock on database connection: {}", e))?;
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
+            .context("Failed to get current timestamp")?
             .as_secs() as i64;
 
         conn.execute(
             "INSERT OR REPLACE INTO devices (id, registered_at) VALUES (?1, ?2)",
             params![device_id, now],
-        )?;
+        )
+        .with_context(|| format!("Failed to register device {}", device_id))?;
 
         Ok(())
     }
 
     /// Check if a device exists in the database
     pub fn device_exists(&self, device_id: &str) -> Result<bool> {
-        let conn = self.conn.lock().map_err(|_| {
-            error!("Failed to acquire lock on database connection");
-            DatabaseError::LockError
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire lock on database connection: {}", e))?;
 
-        let mut stmt = conn.prepare("SELECT 1 FROM devices WHERE id = ?1")?;
-        let exists = stmt.exists(params![device_id])?;
+        let mut stmt = conn
+            .prepare("SELECT 1 FROM devices WHERE id = ?1")
+            .with_context(|| {
+                format!(
+                    "Failed to prepare statement to check device existence: {}",
+                    device_id
+                )
+            })?;
+
+        let exists = stmt
+            .exists(params![device_id])
+            .with_context(|| format!("Failed to check if device exists: {}", device_id))?;
+
         Ok(exists)
     }
 
     /// Retrieves a device by its ID
     pub fn get_device(&self, device_id: &str) -> Result<Option<DeviceRecord>> {
-        let conn = self.conn.lock().map_err(|_| {
-            error!("Failed to acquire lock on database connection");
-            DatabaseError::LockError
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire lock on database connection: {}", e))?;
 
-        let mut stmt = conn.prepare("SELECT id, registered_at FROM devices WHERE id = ?1")?;
-        let mut rows = stmt.query(params![device_id])?;
+        let mut stmt = conn
+            .prepare("SELECT id, registered_at FROM devices WHERE id = ?1")
+            .with_context(|| format!("Failed to prepare statement to get device: {}", device_id))?;
 
-        if let Some(row) = rows.next()? {
+        let mut rows = stmt
+            .query(params![device_id])
+            .with_context(|| format!("Failed to execute query for device: {}", device_id))?;
+
+        if let Some(row) = rows.next().context("Failed to read database row")? {
             Ok(Some(DeviceRecord {
-                id: row.get(0)?,
-                registered_at: row.get(1)?,
+                id: row.get(0).context("Failed to get ID field from row")?,
+                registered_at: row
+                    .get(1)
+                    .context("Failed to get registered_at field from row")?,
             }))
         } else {
             Ok(None)
@@ -117,6 +119,8 @@ pub fn init_database(db_path: &str) -> Result<Arc<Database>> {
         info!("Using existing database at {}", db_path);
     }
 
-    let db = Database::new(db_path)?;
+    let db = Database::new(db_path)
+        .with_context(|| format!("Failed to initialize database at {}", db_path))?;
+
     Ok(Arc::new(db))
 }

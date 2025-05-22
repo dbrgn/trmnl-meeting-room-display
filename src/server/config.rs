@@ -1,3 +1,4 @@
+use anyhow::Result;
 use dotenv::dotenv;
 use std::env;
 use std::sync::OnceLock;
@@ -22,7 +23,7 @@ static CONFIG: OnceLock<Config> = OnceLock::new();
 
 impl Config {
     /// Initialize configuration from environment variables
-    pub fn init() -> Result<&'static Config, String> {
+    pub fn init() -> Result<&'static Config> {
         // Load .env file if it exists
         let _ = dotenv();
 
@@ -31,7 +32,7 @@ impl Config {
             server_port: get_env_or_default("SERVER_PORT", 8080),
             database_path: get_env_or_default("DATABASE_PATH", "devices.db".to_string()),
             access_token: get_env_or("ACCESS_TOKEN")
-                .ok_or_else(|| "ACCESS_TOKEN environment variable is required".to_string())?,
+                .ok_or_else(|| anyhow::anyhow!("ACCESS_TOKEN environment variable is required"))?,
             font_path: get_env_or_default("FONT_PATH", "assets/fonts/BlockKie.ttf".to_string()),
             refresh_rate: get_env_or_default("REFRESH_RATE", 200),
         };
@@ -42,7 +43,7 @@ impl Config {
     }
 
     /// Get global configuration, initializing if necessary
-    pub fn get() -> Result<&'static Config, String> {
+    pub fn get() -> Result<&'static Config> {
         if let Some(config) = CONFIG.get() {
             Ok(config)
         } else {
