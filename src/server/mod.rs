@@ -48,7 +48,7 @@ pub async fn start_server(database: Arc<Database>) -> Result<()> {
 }
 
 /// Create test app for testing
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn test_app(
     database: Arc<Database>,
 ) -> App<
