@@ -5,6 +5,7 @@ This application provides a web server that registers meeting room display devic
 ## Features
 
 - Device registration API
+- Display endpoint providing monochrome BMP images
 - SQLite database integration for device storage
 - Authentication using access tokens
 
@@ -80,6 +81,39 @@ Response:
   "device_id": "00:11:22:33:44:55"
 }
 ```
+
+#### Device Display
+
+```
+GET /api/display
+```
+
+Headers:
+- `ID`: Device MAC address
+- `Access-Token`: The configured access token
+- `Accept`: application/json
+
+Example:
+
+```bash
+curl "http://localhost:8080/api/display" \
+    -H 'ID: 00:11:22:33:44:55' \
+    -H 'Access-Token: your-secret-access-token' \
+    -H 'Accept: application/json'
+```
+
+Response:
+
+```json
+{
+  "filename": "demo.bmp",
+  "image_url": "data:image/bmp;base64,<truncated>",
+  "image_url_timeout": 0,
+  "refresh_rate": 200
+}
+```
+
+The `image_url` contains a Base64-encoded monochrome 800x480px BMP image displaying "hello world" text.
 
 ## Database
 
