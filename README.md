@@ -5,7 +5,7 @@ This application provides a web server that registers meeting room display devic
 ## Features
 
 - Device registration API
-- Display endpoint providing monochrome BMP images
+- Display endpoint providing monochrome BMP images using BlockKie.ttf font
 - SQLite database integration for device storage
 - Authentication using access tokens
 - Modular architecture with separate components
@@ -17,7 +17,7 @@ The project is organized into several modules:
 - `src/main.rs` - Application entry point and tests
 - `src/server/` - Web server logic and API endpoints
 - `src/database/` - Database connection and operations
-- `src/bmp/` - BMP image generation functionality
+- `src/bmp/` - BMP image generation functionality with font rendering
 
 ## Setup
 
@@ -123,7 +123,7 @@ Response:
 }
 ```
 
-The `image_url` contains a Base64-encoded monochrome 800x480px BMP image displaying "hello world" text.
+The `image_url` contains a Base64-encoded monochrome 800x480px BMP image displaying "hello world" text rendered using the BlockKie.ttf font from the assets/fonts directory.
 
 ## Database
 

@@ -1,6 +1,10 @@
 use image::{ImageBuffer, Luma, codecs::bmp::BmpEncoder};
+use imageproc::drawing::draw_text_mut;
+use rusttype::{Font, Scale};
 use std::error::Error;
-use std::io::Cursor;
+use std::fs::File;
+use std::io::{Cursor, Read};
+use std::path::Path;
 
 /// Generate a monochrome 800x480 BMP with "hello world" text
 pub fn generate_hello_world_bmp() -> Result<Vec<u8>, Box<dyn Error>> {
@@ -14,205 +18,82 @@ pub fn generate_hello_world_bmp() -> Result<Vec<u8>, Box<dyn Error>> {
         *pixel = Luma([255]); // White
     }
 
-    // Draw "hello world" manually with simple bitmap font
-    // Each character is 5x7 pixels with 1px spacing
+    // Load font
+    let font_path = Path::new("assets/fonts/BlockKie.ttf");
+    let mut font_data = Vec::new();
+    File::open(font_path)?.read_to_end(&mut font_data)?;
+
+    let font = Font::try_from_bytes(&font_data).ok_or_else(|| "Error loading font".to_string())?;
+
     let text = "hello world";
-    let char_width: usize = 5;
-    let char_height: usize = 7;
-    let char_spacing: usize = 1;
-    let start_x: usize = (width as usize / 2) - ((text.len() * (char_width + char_spacing)) / 2);
-    let start_y: usize = (height as usize / 2) - (char_height / 2);
 
-    // Simple bitmap patterns for each character (1 = pixel, 0 = no pixel)
-    let patterns = [
-        // h
-        [
-            [0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 1, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // e
-        [
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 1, 1, 1, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 1, 1, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // l
-        [
-            [0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // l
-        [
-            [0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // o
-        [
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 1, 1, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 1, 1, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // Space
-        [
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // w
-        [
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 1, 1, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // o
-        [
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 1, 1, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 1, 1, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // r
-        [
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 1, 1, 0, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // l
-        [
-            [0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-            [0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0],
-        ],
-        // d
-        [
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 1, 0],
-            [0, 0, 0, 1, 0],
-            [0, 1, 1, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 1, 1, 0],
-            [0, 0, 0, 0, 0],
-        ],
-    ];
+    // Configure text scale (font size)
+    let scale = Scale { x: 50.0, y: 50.0 };
 
-    // Lookup map for characters
-    let char_map = [
-        ('h', 0),
-        ('e', 1),
-        ('l', 2),
-        ('l', 3),
-        ('o', 4),
-        (' ', 5),
-        ('w', 6),
-        ('o', 7),
-        ('r', 8),
-        ('l', 9),
-        ('d', 10),
-    ];
+    // Calculate text dimensions to center it
+    let v_metrics = font.v_metrics(scale);
+    let text_width = font
+        .layout(text, scale, rusttype::point(0.0, 0.0))
+        .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
+        .last()
+        .unwrap_or(0.0);
 
-    // Draw each character
-    for (i, c) in text.chars().enumerate() {
-        let pattern_idx = char_map
-            .iter()
-            .find(|(ch, _)| *ch == c)
-            .map(|(_, idx)| *idx)
-            .unwrap_or(5); // Default to space
-        let pattern = patterns[pattern_idx];
+    // Position text in the center of the image
+    let x = ((width as f32 - text_width) / 2.0).floor() as i32;
+    let y = ((height as f32 - v_metrics.ascent + v_metrics.descent) / 2.0).floor() as i32;
 
-        let char_x = start_x + i * (char_width + char_spacing);
-
-        // Draw this character
-        for y in 0..char_height {
-            for x in 0..char_width {
-                if pattern[y][x] == 1 {
-                    if char_x + x < width as usize && start_y + y < height as usize {
-                        img.put_pixel((char_x + x) as u32, (start_y + y) as u32, Luma([0]));
-                    }
-                }
-            }
-        }
-    }
+    // Draw text
+    draw_text_mut(
+        &mut img,
+        Luma([0]), // Black text
+        x,
+        y,
+        scale,
+        &font,
+        text,
+    );
 
     // Draw a border around the text for visibility
-    let border_x = start_x.saturating_sub(10);
-    let border_y = start_y.saturating_sub(10);
-    let border_width = text.len() * (char_width + char_spacing) + 20;
-    let border_height = char_height + 20;
+    let border_padding = 20;
+    let text_height = (v_metrics.ascent - v_metrics.descent) as i32;
 
-    // Top and bottom borders
-    for x in border_x..(border_x + border_width) {
-        if x < width as usize {
-            if border_y < height as usize {
-                img.put_pixel(x as u32, border_y as u32, Luma([0]));
+    let border_x = x - border_padding;
+    let border_y = y - border_padding;
+    let border_width = text_width as i32 + (2 * border_padding);
+    let border_height = text_height + (2 * border_padding);
+
+    // Draw border
+    for ix in border_x..(border_x + border_width) {
+        if ix >= 0 && ix < width as i32 {
+            // Top border
+            if border_y >= 0 && border_y < height as i32 {
+                img.put_pixel(ix as u32, border_y as u32, Luma([0]));
             }
-            if (border_y + border_height) < height as usize {
-                img.put_pixel(x as u32, (border_y + border_height) as u32, Luma([0]));
+            // Bottom border
+            if (border_y + border_height) >= 0 && (border_y + border_height) < height as i32 {
+                img.put_pixel(ix as u32, (border_y + border_height) as u32, Luma([0]));
             }
         }
     }
 
-    // Left and right borders
-    for y in border_y..(border_y + border_height) {
-        if y < height as usize {
-            if border_x < width as usize {
-                img.put_pixel(border_x as u32, y as u32, Luma([0]));
+    for iy in border_y..(border_y + border_height) {
+        if iy >= 0 && iy < height as i32 {
+            // Left border
+            if border_x >= 0 && border_x < width as i32 {
+                img.put_pixel(border_x as u32, iy as u32, Luma([0]));
             }
-            if (border_x + border_width) < width as usize {
-                img.put_pixel((border_x + border_width) as u32, y as u32, Luma([0]));
+            // Right border
+            if (border_x + border_width) >= 0 && (border_x + border_width) < width as i32 {
+                img.put_pixel((border_x + border_width) as u32, iy as u32, Luma([0]));
             }
         }
     }
 
-    // Convert to monochrome BMP (1-bit)
-    // For 1-bit BMP, we need to manually create a proper BMP file
+    // Convert to monochrome BMP
     let mut cursor = Cursor::new(Vec::new());
     let mut encoder = BmpEncoder::new(&mut cursor);
 
-    // We're using the encoder to write the image
-    // This will result in an 8-bit image, but for this example it's sufficient
-    // For a true 1-bit monochrome BMP, a more complex encoding would be needed
+    // Encode the image
     encoder
         .encode(&img.to_vec(), width, height, image::ColorType::L8)
         .map_err(|e| Box::new(e) as Box<dyn Error>)?;
