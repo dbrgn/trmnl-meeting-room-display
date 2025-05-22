@@ -8,6 +8,16 @@ This application provides a web server that registers meeting room display devic
 - Display endpoint providing monochrome BMP images
 - SQLite database integration for device storage
 - Authentication using access tokens
+- Modular architecture with separate components
+
+## Project Structure
+
+The project is organized into several modules:
+
+- `src/main.rs` - Application entry point and tests
+- `src/server/` - Web server logic and API endpoints
+- `src/database/` - Database connection and operations
+- `src/bmp/` - BMP image generation functionality
 
 ## Setup
 
@@ -31,10 +41,10 @@ cargo build --release
 
 ### Configuration
 
-Before running the application, make sure to configure the access token in `main.rs`:
+Before running the application, make sure to configure the access token in `src/server/handlers.rs`:
 
 ```rust
-const ACCESS_TOKEN: &str = "your-secret-access-token"; // Replace with your actual token
+pub const ACCESS_TOKEN: &str = "your-secret-access-token"; // Replace with your actual token
 ```
 
 ## Usage
