@@ -1,9 +1,10 @@
+use std::sync::Arc;
+
 use actix_web::{HttpRequest, HttpResponse, web};
 use anyhow::Context;
 use base64::{Engine as _, engine::general_purpose};
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 use super::config::Config;
 use super::errors::AppError;

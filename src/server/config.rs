@@ -1,7 +1,8 @@
-use anyhow::Result;
-use dotenv::dotenv;
 use std::env;
 use std::sync::OnceLock;
+
+use anyhow::Result;
+use dotenv::dotenv;
 
 /// Application configuration
 #[derive(Debug, Clone)]

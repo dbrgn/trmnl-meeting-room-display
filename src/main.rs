@@ -2,11 +2,13 @@ mod bmp;
 mod database;
 mod server;
 
-use crate::database::init_database;
-use crate::server::{config::Config, start_server};
+use std::process;
+
 use anyhow::Context;
 use log::{error, info};
-use std::process;
+
+use crate::database::init_database;
+use crate::server::{config::Config, start_server};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -48,13 +50,15 @@ async fn main() -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::sync::Arc;
+
+    use actix_web::test;
+    use dotenv::dotenv;
+
     use crate::database::Database;
     use crate::server::handlers::DisplayResponse;
     use crate::server::test_app;
-    use actix_web::test;
-    use dotenv::dotenv;
-    use std::fs;
-    use std::sync::Arc;
 
     // Helper function to get the access token for tests
     fn get_test_access_token() -> String {

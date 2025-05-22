@@ -2,10 +2,11 @@ pub mod config;
 pub mod errors;
 pub mod handlers;
 
+use std::sync::Arc;
+
 use actix_web::{App, HttpServer, middleware, web};
 use anyhow::{Context, Result};
 use log::info;
-use std::sync::Arc;
 
 use crate::database::Database;
 use config::Config;

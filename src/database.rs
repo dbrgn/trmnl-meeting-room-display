@@ -1,8 +1,9 @@
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+
 use anyhow::{Context, Result};
 use log::info;
 use rusqlite::{Connection, params};
-use std::path::Path;
-use std::sync::{Arc, Mutex};
 
 /// Database connection and operations wrapper
 pub struct Database {

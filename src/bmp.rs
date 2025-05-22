@@ -1,10 +1,11 @@
+use std::fs::File;
+use std::io::{Cursor, Read};
+use std::path::Path;
+
 use anyhow::{Context, Result};
 use image::{ImageBuffer, Luma, codecs::bmp::BmpEncoder};
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
-use std::fs::File;
-use std::io::{Cursor, Read};
-use std::path::Path;
 
 /// Configuration for image generation
 pub struct ImageConfig {
@@ -109,12 +110,7 @@ pub fn generate_bmp(config: &ImageConfig) -> Result<Vec<u8>> {
 
     // Encode the image
     encoder
-        .encode(
-            &img,
-            config.width,
-            config.height,
-            image::ColorType::L8,
-        )
+        .encode(&img, config.width, config.height, image::ColorType::L8)
         .context("Failed to encode BMP image")?;
 
     Ok(cursor.into_inner())
