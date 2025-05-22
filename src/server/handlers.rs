@@ -4,12 +4,10 @@ use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use super::config::Config;
 use super::errors::AppError;
-use crate::bmp::generate_hello_world_bmp;
+use crate::bmp::{ImageConfig, generate_bmp};
 use crate::database::Database;
-
-// Configuration constants
-pub const ACCESS_TOKEN: &str = "your-secret-access-token"; // Replace with your actual token
 
 // Success response structure
 #[derive(Serialize)]
@@ -36,6 +34,9 @@ pub struct Device {
 
 /// Extract and validate device ID and access token from headers
 pub fn validate_headers(req: &HttpRequest) -> Result<String, AppError> {
+    // Get config for access token validation
+    let config = Config::get().map_err(AppError::ConfigError)?;
+
     // Extract device ID from header
     let device_id = req
         .headers()
@@ -53,7 +54,7 @@ pub fn validate_headers(req: &HttpRequest) -> Result<String, AppError> {
         .to_str()
         .map_err(|_| AppError::AuthError("Invalid Access-Token header format".to_string()))?;
 
-    if token != ACCESS_TOKEN {
+    if token != config.access_token {
         return Err(AppError::AuthError("Invalid Access-Token".to_string()));
     }
 
@@ -69,12 +70,13 @@ pub async fn setup_handler(
 
     info!("Processing setup request for device: {}", device_id);
 
+    // Check if device exists before registration to determine if it's new
+    let exists = db.device_exists(&device_id)?;
+
     // Register device in database
     db.register_device(&device_id)?;
 
-    let is_new = !db.device_exists(&device_id)?;
-
-    let message = if is_new {
+    let message = if !exists {
         format!("Device {} registered successfully", device_id)
     } else {
         format!("Device {} registration updated", device_id)
@@ -89,21 +91,30 @@ pub async fn display_handler(
     db: web::Data<Arc<Database>>,
 ) -> Result<HttpResponse, AppError> {
     let device_id = validate_headers(&req)?;
+    let config = Config::get().map_err(AppError::ConfigError)?;
 
     info!("Processing display request for device: {}", device_id);
 
     // Check if device is registered
-    if !db.device_exists(&device_id)? {
+    let device = db.get_device(&device_id)?;
+    if device.is_none() {
         return Err(AppError::AuthError(format!(
             "Device {} not registered",
             device_id
         )));
     }
 
+    // Set up image configuration using app config
+    let image_config = ImageConfig {
+        font_path: config.font_path.clone(),
+        font_size: 50.0,
+        ..ImageConfig::default()
+    };
+
     // Generate BMP image
-    let bmp_data = generate_hello_world_bmp().map_err(|e| {
+    let bmp_data = generate_bmp(&image_config).map_err(|e| {
         error!("Error generating BMP: {}", e);
-        AppError::DbError(rusqlite::Error::ExecuteReturnedResults)
+        AppError::ImageError(e)
     })?;
 
     // Encode to base64
@@ -115,8 +126,16 @@ pub async fn display_handler(
         filename: "demo.bmp".to_string(),
         image_url,
         image_url_timeout: 0,
-        refresh_rate: 200,
+        refresh_rate: config.refresh_rate,
     };
 
     Ok(HttpResponse::Ok().json(response))
+}
+
+/// Health check endpoint
+pub async fn health_handler() -> HttpResponse {
+    HttpResponse::Ok().json(serde_json::json!({
+        "status": "ok",
+        "version": env!("CARGO_PKG_VERSION")
+    }))
 }

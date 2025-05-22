@@ -1,13 +1,14 @@
 # TRMNL Meeting Room Display
 
-This application provides a web server that registers meeting room display devices using a simple REST API.
+This application provides a web server that registers meeting room display devices and serves monochrome BMP images to them.
 
 ## Features
 
-- Device registration API
+- Device registration API with secure token authentication
 - Display endpoint providing monochrome BMP images using BlockKie.ttf font
 - SQLite database integration for device storage
-- Authentication using access tokens
+- Environment-based configuration
+- Clean error handling
 - Modular architecture with separate components
 
 ## Project Structure
@@ -34,18 +35,29 @@ git clone https://github.com/your-username/trmnl-meeting-room-display.git
 cd trmnl-meeting-room-display
 ```
 
-2. Build the application:
+2. Configure the application:
+```
+cp .env.example .env
+```
+
+3. Edit the `.env` file with your preferred settings, especially the `ACCESS_TOKEN`.
+
+4. Build the application:
 ```
 cargo build --release
 ```
 
 ### Configuration
 
-Before running the application, make sure to configure the access token in `src/server/handlers.rs`:
+The application is configured using environment variables or a `.env` file. Here are the available configuration options:
 
-```rust
-pub const ACCESS_TOKEN: &str = "your-secret-access-token"; // Replace with your actual token
-```
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVER_PORT` | Port the server listens on | `8080` |
+| `DATABASE_PATH` | Path to the SQLite database file | `devices.db` |
+| `ACCESS_TOKEN` | Secret token for API authentication | *Required* |
+| `FONT_PATH` | Path to the font used for text rendering | `assets/fonts/BlockKie.ttf` |
+| `REFRESH_RATE` | Refresh rate for display updates in seconds | `200` |
 
 ## Usage
 
@@ -57,7 +69,7 @@ Run the application with:
 cargo run --release
 ```
 
-The server will start on http://localhost:8080.
+The server will start on http://localhost:8080 (or whatever port you configured).
 
 ### API Endpoints
 
@@ -123,13 +135,42 @@ Response:
 }
 ```
 
-The `image_url` contains a Base64-encoded monochrome 800x480px BMP image displaying "hello world" text rendered using the BlockKie.ttf font from the assets/fonts directory.
+The `image_url` contains a Base64-encoded monochrome 800x480px BMP image displaying "hello world" text rendered using the configured font.
 
-## Database
+#### Health Check
 
-The application uses SQLite to store device information. The database file is created at `devices.db` in the application root directory.
+```
+GET /health
+```
+
+Example:
+
+```bash
+curl "http://localhost:8080/health"
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "version": "0.1.0"
+}
+```
 
 ## Development
+
+### Environment Setup
+
+For development, you can create a `.env` file in the project root with your configuration values:
+
+```
+SERVER_PORT=8080
+DATABASE_PATH=devices.db
+ACCESS_TOKEN=your-development-token
+FONT_PATH=assets/fonts/BlockKie.ttf
+REFRESH_RATE=200
+```
 
 ### Running in Development Mode
 
@@ -142,3 +183,17 @@ cargo run
 ```
 cargo test
 ```
+
+### Code Formatting
+
+Always run the formatter before committing:
+
+```
+cargo fmt
+```
+
+## Security Considerations
+
+- Change the `ACCESS_TOKEN` to a strong, randomly generated value for production use
+- Consider implementing HTTPS for secure communication
+- The server currently only binds to localhost; modify for production environments
