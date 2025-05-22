@@ -53,7 +53,7 @@ The server will start on http://localhost:8080.
 #### Device Setup
 
 ```
-GET or POST /api/setup/
+GET /api/setup/
 ```
 
 Headers:

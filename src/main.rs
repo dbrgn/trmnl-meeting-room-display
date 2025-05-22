@@ -183,8 +183,7 @@ fn test_app(
 > {
     App::new().app_data(web::Data::new(database)).service(
         web::resource("/api/setup/")
-            .route(web::get().to(setup_handler))
-            .route(web::post().to(setup_handler)),
+            .route(web::get().to(setup_handler)),
     )
 }
 
@@ -233,6 +232,33 @@ mod tests {
         // Send request and get response
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
+
+        // Clean up
+        let _ = fs::remove_file(test_db_path);
+    }
+
+    #[actix_web::test]
+    async fn test_setup_endpoint_post_rejected() {
+        let test_db_path = "test_devices_post.db";
+
+        // Ensure test database doesn't exist
+        let _ = fs::remove_file(test_db_path);
+
+        let db = Arc::new(Database::new(test_db_path).unwrap());
+        let app = test::init_service(test_app(db.clone())).await;
+
+        // Create POST request with valid headers
+        let req = test::TestRequest::post()
+            .uri("/api/setup/")
+            .insert_header(("ID", "00:11:22:33:44:55"))
+            .insert_header(("Access-Token", ACCESS_TOKEN))
+            .insert_header(("Accept", "application/json"))
+            .insert_header(("Content-Type", "application/json"))
+            .to_request();
+
+        // Send request and get response
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 405); // Method Not Allowed - POST method not allowed
 
         // Clean up
         let _ = fs::remove_file(test_db_path);
