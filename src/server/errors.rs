@@ -7,13 +7,13 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("Authentication failed: {0}")]
-    AuthError(String),
+    Auth(String),
 
     #[error("Configuration error: {0}")]
-    ConfigError(String),
+    Config(String),
 
     #[error("{0}")]
-    AnyhowError(#[from] AnyhowError),
+    Anyhow(#[from] AnyhowError),
 }
 
 /// Error response structure
@@ -27,9 +27,9 @@ pub struct ErrorResponse {
 impl error::ResponseError for AppError {
     fn status_code(&self) -> StatusCode {
         match self {
-            AppError::AuthError(_) => StatusCode::UNAUTHORIZED,
-            AppError::ConfigError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            AppError::AnyhowError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Auth(_) => StatusCode::UNAUTHORIZED,
+            AppError::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Anyhow(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 

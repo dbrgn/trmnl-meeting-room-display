@@ -104,6 +104,7 @@ impl Database {
 
 /// Record of a device in the database
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct DeviceRecord {
     /// Device unique identifier (MAC address)
     pub id: String,

@@ -37,27 +37,27 @@ pub struct Device {
 pub fn validate_headers(req: &HttpRequest) -> Result<String, AppError> {
     // Get config for access token validation
     let config = Config::get()
-        .map_err(|e| AppError::ConfigError(format!("Failed to get configuration: {}", e)))?;
+        .map_err(|e| AppError::Config(format!("Failed to get configuration: {}", e)))?;
 
     // Extract device ID from header
     let device_id = req
         .headers()
         .get("ID")
-        .ok_or_else(|| AppError::AuthError("Missing ID header".to_string()))?
+        .ok_or_else(|| AppError::Auth("Missing ID header".to_string()))?
         .to_str()
-        .map_err(|e| AppError::AuthError(format!("Invalid ID header format: {}", e)))?
+        .map_err(|e| AppError::Auth(format!("Invalid ID header format: {}", e)))?
         .to_string();
 
     // Validate access token
     let token = req
         .headers()
         .get("Access-Token")
-        .ok_or_else(|| AppError::AuthError("Missing Access-Token header".to_string()))?
+        .ok_or_else(|| AppError::Auth("Missing Access-Token header".to_string()))?
         .to_str()
-        .map_err(|e| AppError::AuthError(format!("Invalid Access-Token header format: {}", e)))?;
+        .map_err(|e| AppError::Auth(format!("Invalid Access-Token header format: {}", e)))?;
 
     if token != config.access_token {
-        return Err(AppError::AuthError("Invalid Access-Token".to_string()));
+        return Err(AppError::Auth("Invalid Access-Token".to_string()));
     }
 
     Ok(device_id)
@@ -110,7 +110,7 @@ pub async fn display_handler(
         .with_context(|| format!("Failed to check if device exists: {}", device_id))
         .map_err(AppError::from)?;
     if device.is_none() {
-        return Err(AppError::AuthError(format!(
+        return Err(AppError::Auth(format!(
             "Device {} not registered",
             device_id
         )));

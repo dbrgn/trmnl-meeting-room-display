@@ -110,7 +110,7 @@ pub fn generate_bmp(config: &ImageConfig) -> Result<Vec<u8>> {
     // Encode the image
     encoder
         .encode(
-            &img.to_vec(),
+            &img,
             config.width,
             config.height,
             image::ColorType::L8,
@@ -118,11 +118,6 @@ pub fn generate_bmp(config: &ImageConfig) -> Result<Vec<u8>> {
         .context("Failed to encode BMP image")?;
 
     Ok(cursor.into_inner())
-}
-
-/// Generate a monochrome 800x480 BMP with "hello world" text using default settings
-pub fn generate_hello_world_bmp() -> Result<Vec<u8>> {
-    generate_bmp(&ImageConfig::default())
 }
 
 /// Draw a border around the specified rectangle
@@ -169,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_generate_bmp_with_default_config() {
-        let result = generate_hello_world_bmp();
+        let result = generate_bmp(&ImageConfig::default());
         assert!(
             result.is_ok(),
             "Failed to generate BMP with default config: {:?}",
