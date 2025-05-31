@@ -1,4 +1,5 @@
 mod bmp;
+mod calendar;
 mod database;
 mod server;
 
