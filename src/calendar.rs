@@ -1,11 +1,9 @@
 use std::fmt;
 
 use anyhow::Result;
-#[allow(unused_imports)]
-use chrono::TimeZone; // Required for .from_local_datetime() and .single() methods
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Local, TimeZone, Utc};
 use icalendar::parser::unfold;
-use log::{debug, error};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -221,36 +219,12 @@ impl Calendar {
         let now = Local::now();
         self.events.iter().filter(|e| e.end_time > now).collect()
     }
-
-    /// Returns events for the current day
-    pub fn get_today_events(&self) -> Vec<&CalendarEvent> {
-        let now = Local::now();
-        let today_start = now.date_naive().and_hms_opt(0, 0, 0).unwrap();
-        let today_end = now.date_naive().and_hms_opt(23, 59, 59).unwrap();
-
-        let today_start =
-            DateTime::<Local>::from_naive_utc_and_offset(today_start, *Local::now().offset());
-
-        let today_end =
-            DateTime::<Local>::from_naive_utc_and_offset(today_end, *Local::now().offset());
-
-        self.events
-            .iter()
-            .filter(|e| {
-                (e.start_time >= today_start && e.start_time <= today_end)
-                    || (e.end_time >= today_start && e.end_time <= today_end)
-                    || (e.start_time <= today_start && e.end_time >= today_end)
-            })
-            .collect()
-    }
 }
 
-// Helper function to parse datetime from iCalendar property
+/// Helper function to parse datetime from iCalendar property
 fn parse_datetime_property(
     property: Option<&icalendar::parser::Property>,
 ) -> Option<DateTime<Local>> {
-    use chrono::TimeZone;
-
     let property = property?;
     let value = property.val.to_string();
 

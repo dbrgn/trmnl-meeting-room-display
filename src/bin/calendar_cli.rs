@@ -1,8 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::Local;
 use clap::Parser;
-
-// Import the calendar module from the main crate
 use trmnl_meeting_room_display::calendar::{Calendar, CalendarEvent};
 
 #[derive(Parser, Debug)]
@@ -20,10 +18,6 @@ struct Args {
     /// Number of upcoming events to display (after the current one)
     #[arg(short = 'n', long, default_value = "3")]
     upcoming: usize,
-
-    /// Show detailed information for each event
-    #[arg(short, long)]
-    detailed: bool,
 }
 
 #[tokio::main]
@@ -45,7 +39,7 @@ async fn main() -> Result<()> {
     match calendar.get_current_event() {
         Some(event) => {
             println!("\n=== CURRENT EVENT ===");
-            print_event(event, args.detailed);
+            print_event(event);
         }
         None => println!("\nNo events currently in progress."),
     }
@@ -64,16 +58,15 @@ async fn main() -> Result<()> {
         println!("\n=== UPCOMING EVENTS ===");
         for (i, event) in next_events.iter().enumerate() {
             println!("\n--- Event {} ---", i + 1);
-            print_event(event, args.detailed);
+            print_event(event);
         }
     }
 
     Ok(())
 }
 
-/// Prints an event to the console, with optional detailed information
-fn print_event(event: &CalendarEvent, detailed: bool) {
-    // Basic information
+/// Prints an event to the console
+fn print_event(event: &CalendarEvent) {
     println!("Title: {}", event.name);
     println!("Time: {}", event.format_time_range());
     println!(
@@ -102,13 +95,7 @@ fn print_event(event: &CalendarEvent, detailed: bool) {
         }
     }
 
-    // Detailed information if requested
-    if detailed {
-        if let Some(location) = &event.location {
-            println!("Location: {}", location);
-        }
-        if let Some(description) = &event.description {
-            println!("Description: {}", description);
-        }
+    if let Some(location) = &event.location {
+        println!("Location: {}", location);
     }
 }
