@@ -7,6 +7,8 @@ use dotenv::dotenv;
 /// Application configuration
 #[derive(Debug, Clone)]
 pub struct Config {
+    /// Server host to listen on
+    pub server_host: String,
     /// Server port to listen on
     pub server_port: u16,
     /// Database file path
@@ -30,6 +32,7 @@ impl Config {
 
         // Get configuration from environment or use defaults
         let config = Config {
+            server_host: get_env_or_default("SERVER_HOST", "127.0.0.1".to_string()),
             server_port: get_env_or_default("SERVER_PORT", 8080),
             database_path: get_env_or_default("DATABASE_PATH", "devices.db".to_string()),
             access_token: get_env_or("ACCESS_TOKEN")
@@ -51,6 +54,7 @@ impl Config {
             // In test environment, provide a default config
             if cfg!(test) {
                 let test_config = Config {
+                    server_host: "127.0.0.1".to_string(),
                     server_port: 8080,
                     database_path: "test_devices.db".to_string(),
                     access_token: std::env::var("ACCESS_TOKEN")

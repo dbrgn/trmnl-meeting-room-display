@@ -36,12 +36,13 @@ pub async fn start_server(database: Arc<Database>) -> Result<()> {
     // Get configuration
     let config = Config::get().context("Failed to load configuration")?;
 
+    let host = &config.server_host;
     let port = config.server_port;
-    info!("Starting server at http://localhost:{}", port);
+    info!("Starting server at http://{}:{}", host, port);
 
     // Start HTTP server
     HttpServer::new(move || create_app(database.clone()).wrap(middleware::Logger::default()))
-        .bind(("127.0.0.1", port))
+        .bind((host.as_str(), port))
         .context("Failed to bind to port")?
         .run()
         .await

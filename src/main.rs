@@ -24,6 +24,7 @@ async fn main() -> std::io::Result<()> {
 
     let config = Config::get().expect("Configuration should be initialized");
     info!("Configuration loaded successfully");
+    info!("Server host: {}", config.server_host);
     info!("Server port: {}", config.server_port);
     info!("Database path: {}", config.database_path);
     info!("Font path: {}", config.font_path);
