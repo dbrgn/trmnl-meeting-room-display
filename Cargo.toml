@@ -2,6 +2,7 @@
 name = "trmnl-meeting-room-display"
 version = "0.1.0"
 edition = "2024"
+default-run = "trmnl-meeting-room-display"
 
 [[bin]]
 name = "calendar-cli"
