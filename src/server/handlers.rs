@@ -1,9 +1,11 @@
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::sync::Arc;
 
 use actix_web::{HttpRequest, HttpResponse, web};
 use anyhow::Context;
 use base64::{Engine as _, engine::general_purpose};
-use log::info;
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 
 use super::config::Config;
@@ -144,26 +146,30 @@ pub async fn display_handler(
     Ok(HttpResponse::Ok().json(response))
 }
 
-/// Log endpoint handler - captures and logs ESP32 device requests
-pub async fn log_handler(req: HttpRequest, body: web::Bytes) -> HttpResponse {
-    // Extract headers for context
+/// Log endpoint handler - captures and logs device log requests
+pub async fn log_handler(req: HttpRequest, body: web::Bytes) -> Result<HttpResponse, AppError> {
+    // Note: Not validating access token for this endpoint, since we want to
+    // capture logs even for misconfigured devices.
+
+    // Extract headers
     let device_id = req
         .headers()
         .get("ID")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("unknown");
-
-    let user_agent = req
-        .headers()
-        .get("User-Agent")
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("unknown");
-
     let content_type = req
         .headers()
         .get("Content-Type")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("unknown");
+
+    // Only accept text or JSON
+    if !matches!(content_type, "application/json" | "text/plain") {
+        warn!("Invalid content type for log request: {}", content_type);
+        return Err(AppError::BadRequest(format!(
+            "Invalid content type: {content_type}"
+        )));
+    }
 
     // Convert body to string, handling potential encoding issues
     let body_str = match std::str::from_utf8(&body) {
@@ -179,30 +185,28 @@ pub async fn log_handler(req: HttpRequest, body: web::Bytes) -> HttpResponse {
     };
 
     info!(
-        "ESP32 Log Request - Device: {}, User-Agent: {}, Content-Type: {}, Body length: {} bytes",
+        "Log request: Device: {}, Content-Type: {}, Body length: {} bytes",
         device_id,
-        user_agent,
         content_type,
         body.len()
     );
 
+    // Append log entry to file
     if !body_str.is_empty() {
-        info!("ESP32 Log Body: {}", body_str);
-    }
-
-    // Log all headers for debugging
-    info!("ESP32 Log Headers:");
-    for (name, value) in req.headers() {
-        if let Ok(value_str) = value.to_str() {
-            info!("  {}: {}", name, value_str);
+        let log_entry = format!("[{}] {}\n", device_id, body_str);
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("device-log.txt")
+        {
+            if let Err(e) = file.write_all(log_entry.as_bytes()) {
+                error!("Failed to write log entry: {}", e);
+            }
         }
     }
 
     // Return a simple success response
-    HttpResponse::Ok().json(serde_json::json!({
-        "status": "received",
-        "message": "Log entry processed successfully"
-    }))
+    Ok(HttpResponse::NoContent().finish())
 }
 
 /// Health check endpoint

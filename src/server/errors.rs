@@ -12,6 +12,9 @@ pub enum AppError {
     #[error("Configuration error: {0}")]
     Config(String),
 
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+
     #[error("{0}")]
     Anyhow(#[from] AnyhowError),
 }
@@ -29,6 +32,7 @@ impl error::ResponseError for AppError {
         match self {
             AppError::Auth(_) => StatusCode::UNAUTHORIZED,
             AppError::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::Anyhow(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
