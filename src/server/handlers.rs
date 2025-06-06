@@ -144,6 +144,67 @@ pub async fn display_handler(
     Ok(HttpResponse::Ok().json(response))
 }
 
+/// Log endpoint handler - captures and logs ESP32 device requests
+pub async fn log_handler(req: HttpRequest, body: web::Bytes) -> HttpResponse {
+    // Extract headers for context
+    let device_id = req
+        .headers()
+        .get("ID")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("unknown");
+
+    let user_agent = req
+        .headers()
+        .get("User-Agent")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("unknown");
+
+    let content_type = req
+        .headers()
+        .get("Content-Type")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("unknown");
+
+    // Convert body to string, handling potential encoding issues
+    let body_str = match std::str::from_utf8(&body) {
+        Ok(s) => s.to_string(),
+        Err(_) => {
+            // If not valid UTF-8, show as hex for binary data
+            format!(
+                "Binary data ({} bytes): {:02x?}",
+                body.len(),
+                &body[..std::cmp::min(body.len(), 100)]
+            )
+        }
+    };
+
+    info!(
+        "ESP32 Log Request - Device: {}, User-Agent: {}, Content-Type: {}, Body length: {} bytes",
+        device_id,
+        user_agent,
+        content_type,
+        body.len()
+    );
+
+    if !body_str.is_empty() {
+        info!("ESP32 Log Body: {}", body_str);
+    }
+
+    // Log all headers for debugging
+    info!("ESP32 Log Headers:");
+    for (name, value) in req.headers() {
+        if let Ok(value_str) = value.to_str() {
+            info!("  {}: {}", name, value_str);
+        }
+    }
+
+    // Return a simple success response
+    HttpResponse::Ok().json(serde_json::json!({
+        "status": "received",
+        "message": "Log entry processed successfully"
+    }))
+}
+
 /// Health check endpoint
 pub async fn health_handler() -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({

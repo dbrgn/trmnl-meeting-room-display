@@ -10,7 +10,7 @@ use log::info;
 
 use crate::database::Database;
 use config::Config;
-use handlers::{display_handler, health_handler, setup_handler};
+use handlers::{display_handler, health_handler, log_handler, setup_handler};
 
 /// Create app for testing or production
 pub fn create_app(
@@ -28,6 +28,7 @@ pub fn create_app(
         .app_data(web::Data::new(database))
         .service(web::resource("/api/setup/").route(web::get().to(setup_handler)))
         .service(web::resource("/api/display").route(web::get().to(display_handler)))
+        .service(web::resource("/api/log").route(web::post().to(log_handler)))
         .service(web::resource("/health").route(web::get().to(health_handler)))
 }
 
