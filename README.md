@@ -53,6 +53,7 @@ The application is configured using environment variables or a `.env` file. Here
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `SERVER_HOST` | Host/IP address the server binds to | `127.0.0.1` |
 | `SERVER_PORT` | Port the server listens on | `8080` |
 | `DATABASE_PATH` | Path to the SQLite database file | `devices.db` |
 | `ACCESS_TOKEN` | Secret token for API authentication | *Required* |
@@ -69,7 +70,7 @@ Run the application with:
 cargo run --release
 ```
 
-The server will start on http://localhost:8080 (or whatever port you configured).
+The server will start on the configured host and port (default: http://127.0.0.1:8080).
 
 ### API Endpoints
 
@@ -137,6 +138,38 @@ Response:
 
 The `image_url` contains a Base64-encoded monochrome 800x480px BMP image displaying "hello world" text rendered using the configured font.
 
+#### Device Logging
+
+```
+POST /api/log
+```
+
+This endpoint captures log messages from ESP32 devices for debugging purposes. It accepts any payload and logs the request details including headers and body content.
+
+Headers:
+- `ID`: Device MAC address (optional, for identification)
+- `User-Agent`: Client identifier (typically "ESP32HTTPClient")
+- `Content-Type`: Content type of the payload
+
+Example:
+
+```bash
+curl -X POST "http://localhost:8080/api/log" \
+    -H 'ID: 00:11:22:33:44:55' \
+    -H 'User-Agent: ESP32HTTPClient' \
+    -H 'Content-Type: application/json' \
+    -d '{"level":"INFO","message":"Device startup","timestamp":1672531200}'
+```
+
+Response:
+
+```json
+{
+  "status": "received",
+  "message": "Log entry processed successfully"
+}
+```
+
 #### Health Check
 
 ```
@@ -165,6 +198,7 @@ Response:
 For development, you can create a `.env` file in the project root with your configuration values:
 
 ```
+SERVER_HOST=127.0.0.1
 SERVER_PORT=8080
 DATABASE_PATH=devices.db
 ACCESS_TOKEN=your-development-token
@@ -196,4 +230,5 @@ cargo fmt
 
 - Change the `ACCESS_TOKEN` to a strong, randomly generated value for production use
 - Consider implementing HTTPS for secure communication
-- The server currently only binds to localhost; modify for production environments
+- By default, the server binds to `127.0.0.1` (localhost only). To allow external connections, set `SERVER_HOST=0.0.0.0` or specify a particular network interface
+- The `/api/log` endpoint does not require authentication and will log all request details for debugging ESP32 devices
