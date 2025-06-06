@@ -1,7 +1,7 @@
 # TRMNL Meeting Room Display
 
-This application provides a web server that registers meeting room display devices and serves monochrome BMP images to them.
-
+This application provides a web server that registers meeting room display
+devices and serves monochrome BMP images to them.
 ## Features
 
 - Device registration API with secure token authentication
@@ -49,8 +49,8 @@ cargo build --release
 
 ### Configuration
 
-The application is configured using environment variables or a `.env` file. Here are the available configuration options:
-
+The application is configured using environment variables or a `.env` file. Here
+are the available configuration options:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SERVER_HOST` | Host/IP address the server binds to | `127.0.0.1` |
@@ -136,39 +136,16 @@ Response:
 }
 ```
 
-The `image_url` contains a Base64-encoded monochrome 800x480px BMP image displaying "hello world" text rendered using the configured font.
-
+The `image_url` contains a Base64-encoded monochrome 800x480px BMP image
+displaying "hello world" text rendered using the configured font.
 #### Device Logging
 
 ```
 POST /api/log
 ```
 
-This endpoint captures log messages from ESP32 devices for debugging purposes. It accepts any payload and logs the request details including headers and body content.
-
-Headers:
-- `ID`: Device MAC address (optional, for identification)
-- `User-Agent`: Client identifier (typically "ESP32HTTPClient")
-- `Content-Type`: Content type of the payload
-
-Example:
-
-```bash
-curl -X POST "http://localhost:8080/api/log" \
-    -H 'ID: 00:11:22:33:44:55' \
-    -H 'User-Agent: ESP32HTTPClient' \
-    -H 'Content-Type: application/json' \
-    -d '{"level":"INFO","message":"Device startup","timestamp":1672531200}'
-```
-
-Response:
-
-```json
-{
-  "status": "received",
-  "message": "Log entry processed successfully"
-}
-```
+This endpoint captures log messages from TRMNL devices for debugging purposes.
+It accepts any payload and appends the request body to the file `device-log.txt`.
 
 #### Health Check
 
@@ -230,5 +207,8 @@ cargo fmt
 
 - Change the `ACCESS_TOKEN` to a strong, randomly generated value for production use
 - Consider implementing HTTPS for secure communication
-- By default, the server binds to `127.0.0.1` (localhost only). To allow external connections, set `SERVER_HOST=0.0.0.0` or specify a particular network interface
-- The `/api/log` endpoint does not require authentication and will log all request details for debugging ESP32 devices
+- By default, the server binds to `127.0.0.1` (localhost only). To allow
+  external connections, set `SERVER_HOST=0.0.0.0` or specify a particular network
+  interface
+- The `/api/log` endpoint does not require authentication and will log all
+  request details for debugging TRMNL devices
