@@ -2,8 +2,13 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::Arc;
 
-use actix_web::{HttpRequest, HttpResponse, web};
 use anyhow::Context;
+use axum::{
+    body::Bytes,
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Json},
+};
 use base64::{Engine as _, engine::general_purpose};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -43,9 +48,8 @@ pub struct Device {
 }
 
 /// Extract device ID from headers
-pub fn extract_device_id(req: &HttpRequest) -> Result<String, AppError> {
-    Ok(req
-        .headers()
+pub fn extract_device_id(headers: &HeaderMap) -> Result<String, AppError> {
+    Ok(headers
         .get("ID")
         .ok_or_else(|| AppError::Auth("Missing ID header".to_string()))?
         .to_str()
@@ -54,10 +58,9 @@ pub fn extract_device_id(req: &HttpRequest) -> Result<String, AppError> {
 }
 
 /// Extract and validate access token in headers
-pub fn validate_headers(req: &HttpRequest, config: &Config) -> Result<(), AppError> {
+pub fn validate_headers(headers: &HeaderMap, config: &Config) -> Result<(), AppError> {
     // Validate access token
-    let token = req
-        .headers()
+    let token = headers
         .get("Access-Token")
         .ok_or_else(|| AppError::Auth("Missing Access-Token header".to_string()))?
         .to_str()
@@ -71,13 +74,14 @@ pub fn validate_headers(req: &HttpRequest, config: &Config) -> Result<(), AppErr
 
 /// Setup endpoint handler
 pub async fn setup_handler(
-    req: HttpRequest,
-    db: web::Data<Arc<Database>>,
-) -> Result<HttpResponse, AppError> {
+    headers: HeaderMap,
+    State(db): State<Arc<Database>>,
+) -> Result<impl IntoResponse, AppError> {
     let config = Config::get()
         .map_err(|e| AppError::Config(format!("Failed to get configuration: {}", e)))?;
 
-    let device_id = extract_device_id(&req)?;
+    validate_headers(&headers, &config)?;
+    let device_id = extract_device_id(&headers)?;
 
     info!("Processing setup request for device: {}", device_id);
 
@@ -97,7 +101,7 @@ pub async fn setup_handler(
         info!("Device {} registration updated", device_id)
     };
 
-    Ok(HttpResponse::Ok().json(SetupResponse {
+    Ok(Json(SetupResponse {
         status: 200,
         api_key: "my-api-key".into(),
         friendly_id: "TRMNL001".into(),
@@ -107,16 +111,16 @@ pub async fn setup_handler(
 
 /// Display endpoint handler
 pub async fn display_handler(
-    req: HttpRequest,
-    db: web::Data<Arc<Database>>,
-) -> Result<HttpResponse, AppError> {
+    headers: HeaderMap,
+    State(db): State<Arc<Database>>,
+) -> Result<impl IntoResponse, AppError> {
     let config = Config::get()
         .context("Failed to get configuration")
         .map_err(AppError::from)?;
 
-    validate_headers(&req, &config)?;
+    validate_headers(&headers, &config)?;
 
-    let device_id = extract_device_id(&req)?;
+    let device_id = extract_device_id(&headers)?;
 
     info!("Processing display request for device: {}", device_id);
 
@@ -156,22 +160,20 @@ pub async fn display_handler(
         refresh_rate: config.refresh_rate,
     };
 
-    Ok(HttpResponse::Ok().json(response))
+    Ok(Json(response))
 }
 
 /// Log endpoint handler - captures and logs device log requests
-pub async fn log_handler(req: HttpRequest, body: web::Bytes) -> Result<HttpResponse, AppError> {
+pub async fn log_handler(headers: HeaderMap, body: Bytes) -> Result<impl IntoResponse, AppError> {
     // Note: Not validating access token for this endpoint, since we want to
     // capture logs even for misconfigured devices.
 
     // Extract headers
-    let device_id = req
-        .headers()
+    let device_id = headers
         .get("ID")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("unknown");
-    let content_type = req
-        .headers()
+    let content_type = headers
         .get("Content-Type")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("unknown");
@@ -219,12 +221,12 @@ pub async fn log_handler(req: HttpRequest, body: web::Bytes) -> Result<HttpRespo
     }
 
     // Return a simple success response
-    Ok(HttpResponse::NoContent().finish())
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Health check endpoint
-pub async fn health_handler() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
+pub async fn health_handler() -> impl IntoResponse {
+    Json(serde_json::json!({
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION")
     }))

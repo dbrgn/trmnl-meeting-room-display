@@ -4,32 +4,29 @@ pub mod handlers;
 
 use std::sync::Arc;
 
-use actix_web::{App, HttpServer, middleware, web};
 use anyhow::{Context, Result};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use log::info;
+use tokio::net::TcpListener;
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
 
 use crate::database::Database;
 use config::Config;
 use handlers::{display_handler, health_handler, log_handler, setup_handler};
 
 /// Create app for testing or production
-pub fn create_app(
-    database: Arc<Database>,
-) -> App<
-    impl actix_web::dev::ServiceFactory<
-        actix_web::dev::ServiceRequest,
-        Config = (),
-        Response = actix_web::dev::ServiceResponse,
-        Error = actix_web::Error,
-        InitError = (),
-    >,
-> {
-    App::new()
-        .app_data(web::Data::new(database))
-        .service(web::resource("/api/setup/").route(web::get().to(setup_handler)))
-        .service(web::resource("/api/display").route(web::get().to(display_handler)))
-        .service(web::resource("/api/log").route(web::post().to(log_handler)))
-        .service(web::resource("/health").route(web::get().to(health_handler)))
+pub fn create_app(database: Arc<Database>) -> Router {
+    Router::new()
+        .route("/api/setup/", get(setup_handler))
+        .route("/api/display", get(display_handler))
+        .route("/api/log", post(log_handler))
+        .route("/health", get(health_handler))
+        .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
+        .with_state(database)
 }
 
 /// Start the server with the given database connection
@@ -39,29 +36,24 @@ pub async fn start_server(database: Arc<Database>) -> Result<()> {
 
     let host = &config.server_host;
     let port = config.server_port;
-    info!("Starting server at http://{}:{}", host, port);
+    let addr = format!("{}:{}", host, port);
 
-    // Start HTTP server
-    HttpServer::new(move || create_app(database.clone()).wrap(middleware::Logger::default()))
-        .bind((host.as_str(), port))
-        .context("Failed to bind to port")?
-        .run()
+    info!("Starting server at http://{}", addr);
+
+    // Create the app
+    let app = create_app(database);
+
+    // Create listener
+    let listener = TcpListener::bind(&addr)
         .await
-        .context("Server error")
+        .context("Failed to bind to address")?;
+
+    // Start the server
+    axum::serve(listener, app).await.context("Server error")
 }
 
 /// Create test app for testing
 #[cfg(test)]
-pub fn test_app(
-    database: Arc<Database>,
-) -> App<
-    impl actix_web::dev::ServiceFactory<
-        actix_web::dev::ServiceRequest,
-        Config = (),
-        Response = actix_web::dev::ServiceResponse,
-        Error = actix_web::Error,
-        InitError = (),
-    >,
-> {
+pub fn test_app(database: Arc<Database>) -> Router {
     create_app(database)
 }

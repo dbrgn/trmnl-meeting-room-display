@@ -1,5 +1,9 @@
-use actix_web::{HttpResponse, error, http::StatusCode};
 use anyhow::Error as AnyhowError;
+use axum::{
+    Json,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -26,23 +30,21 @@ pub struct ErrorResponse {
     pub code: u16,
 }
 
-/// Implement conversion from AppError to actix_web::error::Error
-impl error::ResponseError for AppError {
-    fn status_code(&self) -> StatusCode {
-        match self {
+/// Implement conversion from AppError to axum::response::Response
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let status = match self {
             AppError::Auth(_) => StatusCode::UNAUTHORIZED,
             AppError::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::Anyhow(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
+        };
 
-    fn error_response(&self) -> HttpResponse {
-        let status = self.status_code();
-
-        HttpResponse::build(status).json(ErrorResponse {
+        let error_response = ErrorResponse {
             error: self.to_string(),
             code: status.as_u16(),
-        })
+        };
+
+        (status, Json(error_response)).into_response()
     }
 }

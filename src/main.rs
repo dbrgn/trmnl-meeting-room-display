@@ -11,8 +11,8 @@ use log::{error, info};
 use crate::database::init_database;
 use crate::server::{config::Config, start_server};
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logger
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
@@ -44,10 +44,12 @@ async fn main() -> std::io::Result<()> {
 
     // Start the web server
     info!("Starting server...");
-    start_server(database).await.map_err(|e| {
+    if let Err(e) = start_server(database).await {
         error!("Server error: {:#}", e);
-        std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-    })
+        return Err(e.into());
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -55,8 +57,10 @@ mod tests {
     use std::fs;
     use std::sync::Arc;
 
-    use actix_web::test;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
     use dotenv::dotenv;
+    use tower::util::ServiceExt;
 
     use crate::database::Database;
     use crate::server::handlers::DisplayResponse;
@@ -68,7 +72,7 @@ mod tests {
         std::env::var("ACCESS_TOKEN").unwrap_or_else(|_| "your-secret-access-token".to_string())
     }
 
-    #[actix_web::test]
+    #[tokio::test]
     async fn test_setup_endpoint_success() {
         let test_db_path = "test_devices.db";
         let access_token = get_test_access_token();
@@ -77,26 +81,28 @@ mod tests {
         let _ = fs::remove_file(test_db_path);
 
         let db = Arc::new(Database::new(test_db_path).unwrap());
-        let app = test::init_service(test_app(db.clone())).await;
+        let app = test_app(db.clone());
 
         // Create test request with valid headers
-        let req = test::TestRequest::get()
+        let req = Request::builder()
             .uri("/api/setup/")
-            .insert_header(("ID", "00:11:22:33:44:55"))
-            .insert_header(("Access-Token", access_token))
-            .insert_header(("Accept", "application/json"))
-            .insert_header(("Content-Type", "application/json"))
-            .to_request();
+            .method("GET")
+            .header("ID", "00:11:22:33:44:55")
+            .header("Access-Token", access_token)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .body(Body::empty())
+            .unwrap();
 
         // Send request and get response
-        let resp = test::call_service(&app, req).await;
+        let resp = app.oneshot(req).await.unwrap();
         assert!(resp.status().is_success());
 
         // Clean up
         let _ = fs::remove_file(test_db_path);
     }
 
-    #[actix_web::test]
+    #[tokio::test]
     async fn test_setup_endpoint_post_rejected() {
         let test_db_path = "test_devices_post.db";
         let access_token = get_test_access_token();
@@ -105,26 +111,28 @@ mod tests {
         let _ = fs::remove_file(test_db_path);
 
         let db = Arc::new(Database::new(test_db_path).unwrap());
-        let app = test::init_service(test_app(db.clone())).await;
+        let app = test_app(db.clone());
 
         // Create POST request with valid headers
-        let req = test::TestRequest::post()
+        let req = Request::builder()
             .uri("/api/setup/")
-            .insert_header(("ID", "00:11:22:33:44:55"))
-            .insert_header(("Access-Token", access_token))
-            .insert_header(("Accept", "application/json"))
-            .insert_header(("Content-Type", "application/json"))
-            .to_request();
+            .method("POST")
+            .header("ID", "00:11:22:33:44:55")
+            .header("Access-Token", access_token)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .body(Body::empty())
+            .unwrap();
 
         // Send request and get response
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 405); // Method Not Allowed - POST method not allowed
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::METHOD_NOT_ALLOWED); // Method Not Allowed - POST method not allowed
 
         // Clean up
         let _ = fs::remove_file(test_db_path);
     }
 
-    #[actix_web::test]
+    #[tokio::test]
     async fn test_display_endpoint_success() {
         let test_db_path = "test_devices_display.db";
         let access_token = get_test_access_token();
@@ -137,22 +145,26 @@ mod tests {
         // Register a device first
         db.register_device("00:11:22:33:44:55").unwrap();
 
-        let app = test::init_service(test_app(db.clone())).await;
+        let app = test_app(db.clone());
 
         // Create test request with valid headers
-        let req = test::TestRequest::get()
+        let req = Request::builder()
             .uri("/api/display")
-            .insert_header(("ID", "00:11:22:33:44:55"))
-            .insert_header(("Access-Token", access_token))
-            .insert_header(("Accept", "application/json"))
-            .to_request();
+            .method("GET")
+            .header("ID", "00:11:22:33:44:55")
+            .header("Access-Token", access_token)
+            .header("Accept", "application/json")
+            .body(Body::empty())
+            .unwrap();
 
         // Send request and get response
-        let resp = test::call_service(&app, req).await;
+        let resp = app.oneshot(req).await.unwrap();
         assert!(resp.status().is_success());
 
         // Verify response contains expected fields
-        let body = test::read_body(resp).await;
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let response: DisplayResponse = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(response.filename, "demo.bmp");
@@ -163,7 +175,7 @@ mod tests {
         let _ = fs::remove_file(test_db_path);
     }
 
-    #[actix_web::test]
+    #[tokio::test]
     async fn test_setup_endpoint_invalid_token() {
         let test_db_path = "test_devices_invalid.db";
 
@@ -171,26 +183,28 @@ mod tests {
         let _ = fs::remove_file(test_db_path);
 
         let db = Arc::new(Database::new(test_db_path).unwrap());
-        let app = test::init_service(test_app(db.clone())).await;
+        let app = test_app(db.clone());
 
         // Create test request with invalid token
-        let req = test::TestRequest::get()
+        let req = Request::builder()
             .uri("/api/setup/")
-            .insert_header(("ID", "00:11:22:33:44:55"))
-            .insert_header(("Access-Token", "invalid-token"))
-            .insert_header(("Accept", "application/json"))
-            .insert_header(("Content-Type", "application/json"))
-            .to_request();
+            .method("GET")
+            .header("ID", "00:11:22:33:44:55")
+            .header("Access-Token", "invalid-token")
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .body(Body::empty())
+            .unwrap();
 
         // Send request and get response
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 401); // Unauthorized
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED); // Unauthorized
 
         // Clean up
         let _ = fs::remove_file(test_db_path);
     }
 
-    #[actix_web::test]
+    #[tokio::test]
     async fn test_setup_endpoint_missing_headers() {
         let test_db_path = "test_devices_missing.db";
         let access_token = get_test_access_token();
@@ -199,25 +213,27 @@ mod tests {
         let _ = fs::remove_file(test_db_path);
 
         let db = Arc::new(Database::new(test_db_path).unwrap());
-        let app = test::init_service(test_app(db.clone())).await;
+        let app = test_app(db.clone());
 
         // Create test request with missing ID header
-        let req = test::TestRequest::get()
+        let req = Request::builder()
             .uri("/api/setup/")
-            .insert_header(("Access-Token", access_token))
-            .insert_header(("Accept", "application/json"))
-            .insert_header(("Content-Type", "application/json"))
-            .to_request();
+            .method("GET")
+            .header("Access-Token", access_token)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .body(Body::empty())
+            .unwrap();
 
         // Send request and get response
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), 401); // Unauthorized
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED); // Unauthorized
 
         // Clean up
         let _ = fs::remove_file(test_db_path);
     }
 
-    #[actix_web::test]
+    #[tokio::test]
     async fn test_health_endpoint() {
         let test_db_path = "test_health.db";
 
@@ -225,13 +241,17 @@ mod tests {
         let _ = fs::remove_file(test_db_path);
 
         let db = Arc::new(Database::new(test_db_path).unwrap());
-        let app = test::init_service(test_app(db.clone())).await;
+        let app = test_app(db.clone());
 
         // Create test request
-        let req = test::TestRequest::get().uri("/health").to_request();
+        let req = Request::builder()
+            .uri("/health")
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
 
         // Send request and get response
-        let resp = test::call_service(&app, req).await;
+        let resp = app.oneshot(req).await.unwrap();
         assert!(resp.status().is_success());
 
         // Clean up
