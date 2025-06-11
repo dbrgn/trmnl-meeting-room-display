@@ -1,6 +1,4 @@
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::sync::Arc;
+use std::{fs::OpenOptions, io::Write, sync::Arc};
 
 use anyhow::Context;
 use axum::{
@@ -10,8 +8,8 @@ use axum::{
     response::{IntoResponse, Json},
 };
 use base64::{Engine as _, engine::general_purpose};
-use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
+use tracing::{error, info, warn};
 
 use super::config::Config;
 use super::errors::AppError;
@@ -66,6 +64,7 @@ pub fn validate_headers(headers: &HeaderMap, config: &Config) -> Result<(), AppE
         .to_str()
         .map_err(|e| AppError::Auth(format!("Invalid Access-Token header format: {}", e)))?;
     if token != config.access_token {
+        info!("Header validation failed");
         return Err(AppError::Auth("Invalid Access-Token".to_string()));
     }
 
