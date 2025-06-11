@@ -2,6 +2,7 @@ use std::process;
 
 use anyhow::Context;
 use log::{error, info};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
     database::init_database,
@@ -15,8 +16,14 @@ mod server;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logger
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    // Initialize logger and tracing
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info,tower_http=trace".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     // Initialize configuration
     if let Err(e) = Config::init().context("Failed to initialize configuration") {
