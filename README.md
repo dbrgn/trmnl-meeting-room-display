@@ -40,7 +40,7 @@ cd trmnl-meeting-room-display
 cp .env.example .env
 ```
 
-3. Edit the `.env` file with your preferred settings, especially the `ACCESS_TOKEN`.
+3. Edit the `.env` file with your preferred settings, especially the required `ACCESS_TOKEN` and `SERVER_URL`.
 
 4. Build the application:
 ```
@@ -55,7 +55,7 @@ are the available configuration options:
 |----------|-------------|---------|
 | `SERVER_HOST` | Host/IP address the server binds to | `127.0.0.1` |
 | `SERVER_PORT` | Port the server listens on | `8080` |
-| `SERVER_URL` | Public URL for the server (used in API responses) | `http://127.0.0.1:8080` |
+| `SERVER_URL` | Public URL for the server (used in API responses) | *Required* |
 | `DATABASE_PATH` | Path to the SQLite database file | `devices.db` |
 | `ACCESS_TOKEN` | Secret token for API authentication | *Required* |
 | `FONT_PATH` | Path to the font used for text rendering | `assets/fonts/BlockKie.ttf` |
@@ -178,6 +178,7 @@ For development, you can create a `.env` file in the project root with your conf
 ```
 SERVER_HOST=127.0.0.1
 SERVER_PORT=8080
+SERVER_URL=http://localhost:8080
 DATABASE_PATH=devices.db
 ACCESS_TOKEN=your-development-token
 FONT_PATH=assets/fonts/BlockKie.ttf
