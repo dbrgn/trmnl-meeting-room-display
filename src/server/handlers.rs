@@ -15,9 +15,15 @@ use crate::database::Database;
 
 // Success response structure
 #[derive(Serialize)]
-pub struct SuccessResponse {
-    pub message: String,
-    pub device_id: String,
+pub struct SetupResponse {
+    /// Status code, should be 200
+    pub status: u16,
+    /// API key for the device
+    pub api_key: String,
+    /// Friendly ID for the device
+    pub friendly_id: String,
+    /// Image to show on the setup screen (BMP, 800x480px)
+    pub image_url: String,
 }
 
 // Display response structure
@@ -36,21 +42,19 @@ pub struct Device {
     pub registered_at: i64,
 }
 
-/// Extract and validate device ID and access token from headers
-pub fn validate_headers(req: &HttpRequest) -> Result<String, AppError> {
-    // Get config for access token validation
-    let config = Config::get()
-        .map_err(|e| AppError::Config(format!("Failed to get configuration: {}", e)))?;
-
-    // Extract device ID from header
-    let device_id = req
+/// Extract device ID from headers
+pub fn extract_device_id(req: &HttpRequest) -> Result<String, AppError> {
+    Ok(req
         .headers()
         .get("ID")
         .ok_or_else(|| AppError::Auth("Missing ID header".to_string()))?
         .to_str()
         .map_err(|e| AppError::Auth(format!("Invalid ID header format: {}", e)))?
-        .to_string();
+        .to_string())
+}
 
+/// Extract and validate access token in headers
+pub fn validate_headers(req: &HttpRequest, config: &Config) -> Result<(), AppError> {
     // Validate access token
     let token = req
         .headers()
@@ -58,12 +62,11 @@ pub fn validate_headers(req: &HttpRequest) -> Result<String, AppError> {
         .ok_or_else(|| AppError::Auth("Missing Access-Token header".to_string()))?
         .to_str()
         .map_err(|e| AppError::Auth(format!("Invalid Access-Token header format: {}", e)))?;
-
     if token != config.access_token {
         return Err(AppError::Auth("Invalid Access-Token".to_string()));
     }
 
-    Ok(device_id)
+    Ok(())
 }
 
 /// Setup endpoint handler
@@ -71,7 +74,10 @@ pub async fn setup_handler(
     req: HttpRequest,
     db: web::Data<Arc<Database>>,
 ) -> Result<HttpResponse, AppError> {
-    let device_id = validate_headers(&req)?;
+    let config = Config::get()
+        .map_err(|e| AppError::Config(format!("Failed to get configuration: {}", e)))?;
+
+    let device_id = extract_device_id(&req)?;
 
     info!("Processing setup request for device: {}", device_id);
 
@@ -85,14 +91,18 @@ pub async fn setup_handler(
     db.register_device(&device_id)
         .with_context(|| format!("Failed to register device: {}", device_id))
         .map_err(AppError::from)?;
-
-    let message = if !exists {
-        format!("Device {} registered successfully", device_id)
+    if !exists {
+        info!("Device {} registered successfully", device_id)
     } else {
-        format!("Device {} registration updated", device_id)
+        info!("Device {} registration updated", device_id)
     };
 
-    Ok(HttpResponse::Ok().json(SuccessResponse { message, device_id }))
+    Ok(HttpResponse::Ok().json(SetupResponse {
+        status: 200,
+        api_key: "my-api-key".into(),
+        friendly_id: "TRMNL001".into(),
+        image_url: "/assets/setup-logo.bmp".into(),
+    }))
 }
 
 /// Display endpoint handler
@@ -100,10 +110,13 @@ pub async fn display_handler(
     req: HttpRequest,
     db: web::Data<Arc<Database>>,
 ) -> Result<HttpResponse, AppError> {
-    let device_id = validate_headers(&req)?;
     let config = Config::get()
         .context("Failed to get configuration")
         .map_err(AppError::from)?;
+
+    validate_headers(&req, &config)?;
+
+    let device_id = extract_device_id(&req)?;
 
     info!("Processing display request for device: {}", device_id);
 
