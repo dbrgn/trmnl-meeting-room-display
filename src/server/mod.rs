@@ -12,7 +12,7 @@ use axum::{
 use log::info;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
-use tower_http::trace::TraceLayer;
+use tower_http::{services::ServeDir, trace::TraceLayer};
 
 use crate::database::Database;
 use config::Config;
@@ -25,6 +25,7 @@ pub fn create_app(database: Arc<Database>) -> Router {
         .route("/api/display", get(display_handler))
         .route("/api/log", post(log_handler))
         .route("/health", get(health_handler))
+        .nest_service("/static", ServeDir::new("static"))
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
         .with_state(database)
 }

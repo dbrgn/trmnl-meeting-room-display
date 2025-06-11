@@ -261,4 +261,40 @@ mod tests {
         // Clean up
         let _ = fs::remove_file(test_db_path);
     }
+
+    #[tokio::test]
+    async fn test_static_file_endpoint() {
+        let test_db_path = "test_static.db";
+
+        // Ensure test database doesn't exist
+        let _ = fs::remove_file(test_db_path);
+
+        let db = Arc::new(Database::new(test_db_path).unwrap());
+        let app = test_app(db.clone());
+
+        // Create test request for static BMP file
+        let req = Request::builder()
+            .uri("/static/setup-logo.bmp")
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
+
+        // Send request and get response
+        let resp = app.oneshot(req).await.unwrap();
+        assert!(resp.status().is_success());
+
+        // Verify that we get BMP file content back with correct magic bytes
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let bytes = body.to_vec();
+
+        // Check that file starts with BMP magic bytes (0x42 0x4d = "BM")
+        assert!(bytes.len() >= 2);
+        assert_eq!(bytes[0], 0x42);
+        assert_eq!(bytes[1], 0x4d);
+
+        // Clean up
+        let _ = fs::remove_file(test_db_path);
+    }
 }
