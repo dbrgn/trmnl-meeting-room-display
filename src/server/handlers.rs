@@ -79,7 +79,6 @@ pub async fn setup_handler(
     let config = Config::get()
         .map_err(|e| AppError::Config(format!("Failed to get configuration: {}", e)))?;
 
-    validate_headers(&headers, &config)?;
     let device_id = extract_device_id(&headers)?;
 
     info!("Processing setup request for device: {}", device_id);
