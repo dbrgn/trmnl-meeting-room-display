@@ -10,6 +10,8 @@ pub struct Config {
     pub server_host: String,
     /// Server port to listen on
     pub server_port: u16,
+    /// Public server URL for external access
+    pub server_url: String,
     /// Database file path
     pub database_path: String,
     /// Access token for API authentication
@@ -18,8 +20,6 @@ pub struct Config {
     pub font_path: String,
     /// Image refresh rate in seconds
     pub refresh_rate: u32,
-    /// Public server URL for external access
-    pub server_url: String,
 }
 
 // Global config instance
@@ -35,17 +35,13 @@ impl Config {
         let config = Config {
             server_host: get_env_or_default("SERVER_HOST", "127.0.0.1".to_string()),
             server_port: get_env_or_default("SERVER_PORT", 8080),
+            server_url: get_env_or("SERVER_URL")
+                .ok_or_else(|| anyhow::anyhow!("SERVER_URL environment variable is required"))?,
             database_path: get_env_or_default("DATABASE_PATH", "devices.db".to_string()),
             access_token: get_env_or("ACCESS_TOKEN")
                 .ok_or_else(|| anyhow::anyhow!("ACCESS_TOKEN environment variable is required"))?,
             font_path: get_env_or_default("FONT_PATH", "assets/fonts/BlockKie.ttf".to_string()),
             refresh_rate: get_env_or_default("REFRESH_RATE", 200),
-            server_url: if cfg!(test) {
-                get_env_or_default("SERVER_URL", "http://127.0.0.1:8080".to_string())
-            } else {
-                get_env_or("SERVER_URL")
-                    .ok_or_else(|| anyhow::anyhow!("SERVER_URL environment variable is required"))?
-            },
         };
 
         // Store in global state
@@ -63,12 +59,12 @@ impl Config {
                 let test_config = Config {
                     server_host: "127.0.0.1".to_string(),
                     server_port: 8080,
+                    server_url: "http://127.0.0.1:8080".to_string(),
                     database_path: "test_devices.db".to_string(),
                     access_token: std::env::var("ACCESS_TOKEN")
                         .unwrap_or_else(|_| "your-secret-access-token".to_string()),
                     font_path: "assets/fonts/BlockKie.ttf".to_string(),
                     refresh_rate: 200,
-                    server_url: "http://127.0.0.1:8080".to_string(),
                 };
                 CONFIG.get_or_init(|| test_config);
                 Ok(CONFIG.get().unwrap())
