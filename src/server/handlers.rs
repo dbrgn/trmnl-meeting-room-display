@@ -19,7 +19,7 @@ use crate::bmp::{ImageConfig, generate_bmp};
 use crate::database::Database;
 
 /// Success response structure
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SetupResponse {
     /// Status code, should be 200
     pub status: u16,
@@ -105,7 +105,7 @@ pub async fn setup_handler(
         status: 200,
         api_key: "my-api-key".into(),
         friendly_id: "TRMNL001".into(),
-        image_url: "/assets/setup-logo.bmp".into(),
+        image_url: format!("{}/static/setup-logo.bmp", config.server_url),
     }))
 }
 

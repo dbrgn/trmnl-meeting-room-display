@@ -18,6 +18,8 @@ pub struct Config {
     pub font_path: String,
     /// Image refresh rate in seconds
     pub refresh_rate: u32,
+    /// Public server URL for external access
+    pub server_url: String,
 }
 
 // Global config instance
@@ -30,14 +32,19 @@ impl Config {
         let _ = dotenv();
 
         // Get configuration from environment or use defaults
+        let server_host = get_env_or_default("SERVER_HOST", "127.0.0.1".to_string());
+        let server_port = get_env_or_default("SERVER_PORT", 8080);
+        let default_server_url = format!("http://{}:{}", server_host, server_port);
+
         let config = Config {
-            server_host: get_env_or_default("SERVER_HOST", "127.0.0.1".to_string()),
-            server_port: get_env_or_default("SERVER_PORT", 8080),
+            server_host,
+            server_port,
             database_path: get_env_or_default("DATABASE_PATH", "devices.db".to_string()),
             access_token: get_env_or("ACCESS_TOKEN")
                 .ok_or_else(|| anyhow::anyhow!("ACCESS_TOKEN environment variable is required"))?,
             font_path: get_env_or_default("FONT_PATH", "assets/fonts/BlockKie.ttf".to_string()),
             refresh_rate: get_env_or_default("REFRESH_RATE", 200),
+            server_url: get_env_or_default("SERVER_URL", default_server_url),
         };
 
         // Store in global state
@@ -60,6 +67,7 @@ impl Config {
                         .unwrap_or_else(|_| "your-secret-access-token".to_string()),
                     font_path: "assets/fonts/BlockKie.ttf".to_string(),
                     refresh_rate: 200,
+                    server_url: "http://127.0.0.1:8080".to_string(),
                 };
                 CONFIG.get_or_init(|| test_config);
                 Ok(CONFIG.get().unwrap())

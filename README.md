@@ -55,6 +55,7 @@ are the available configuration options:
 |----------|-------------|---------|
 | `SERVER_HOST` | Host/IP address the server binds to | `127.0.0.1` |
 | `SERVER_PORT` | Port the server listens on | `8080` |
+| `SERVER_URL` | Public URL for the server (used in API responses) | `http://127.0.0.1:8080` |
 | `DATABASE_PATH` | Path to the SQLite database file | `devices.db` |
 | `ACCESS_TOKEN` | Secret token for API authentication | *Required* |
 | `FONT_PATH` | Path to the font used for text rendering | `assets/fonts/BlockKie.ttf` |

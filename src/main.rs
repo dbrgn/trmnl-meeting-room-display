@@ -28,6 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Configuration loaded successfully");
     info!("Server host: {}", config.server_host);
     info!("Server port: {}", config.server_port);
+    info!("Server URL: {}", config.server_url);
     info!("Database path: {}", config.database_path);
     info!("Font path: {}", config.font_path);
 
@@ -67,7 +68,10 @@ mod tests {
 
     use crate::{
         database::Database,
-        server::{handlers::DisplayResponse, test_app},
+        server::{
+            handlers::{DisplayResponse, SetupResponse},
+            test_app,
+        },
     };
 
     /// Helper function to get the access token for tests
@@ -293,6 +297,49 @@ mod tests {
         assert!(bytes.len() >= 2);
         assert_eq!(bytes[0], 0x42);
         assert_eq!(bytes[1], 0x4d);
+
+        // Clean up
+        let _ = fs::remove_file(test_db_path);
+    }
+
+    #[tokio::test]
+    async fn test_setup_endpoint_returns_full_url() {
+        let test_db_path = "test_setup_url.db";
+        let access_token = get_test_access_token();
+
+        // Ensure test database doesn't exist
+        let _ = fs::remove_file(test_db_path);
+
+        let db = Arc::new(Database::new(test_db_path).unwrap());
+        let app = test_app(db.clone());
+
+        // Create test request with valid headers
+        let req = Request::builder()
+            .uri("/api/setup/")
+            .method("GET")
+            .header("ID", "00:11:22:33:44:55")
+            .header("Access-Token", access_token)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .body(Body::empty())
+            .unwrap();
+
+        // Send request and get response
+        let resp = app.oneshot(req).await.unwrap();
+        assert!(resp.status().is_success());
+
+        // Verify response contains full URL for image_url
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let response: SetupResponse = serde_json::from_slice(&body).unwrap();
+
+        // Check that image_url contains the full server URL
+        assert_eq!(
+            response.image_url,
+            "http://127.0.0.1:8080/static/setup-logo.bmp"
+        );
+        assert!(response.image_url.starts_with("http://"));
 
         // Clean up
         let _ = fs::remove_file(test_db_path);
