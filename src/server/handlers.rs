@@ -18,7 +18,7 @@ use super::errors::AppError;
 use crate::bmp::{ImageConfig, generate_bmp};
 use crate::database::Database;
 
-// Success response structure
+/// Success response structure
 #[derive(Serialize)]
 pub struct SetupResponse {
     /// Status code, should be 200
@@ -31,7 +31,7 @@ pub struct SetupResponse {
     pub image_url: String,
 }
 
-// Display response structure
+/// Display response structure
 #[derive(Serialize, Deserialize)]
 pub struct DisplayResponse {
     pub filename: String,
@@ -40,7 +40,7 @@ pub struct DisplayResponse {
     pub refresh_rate: u32,
 }
 
-// Device structure
+/// Device structure
 #[derive(Serialize, Deserialize)]
 pub struct Device {
     pub id: String,

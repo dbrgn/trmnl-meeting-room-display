@@ -70,7 +70,7 @@ mod tests {
         server::{handlers::DisplayResponse, test_app},
     };
 
-    // Helper function to get the access token for tests
+    /// Helper function to get the access token for tests
     fn get_test_access_token() -> String {
         dotenv().ok();
         std::env::var("ACCESS_TOKEN").unwrap_or_else(|_| "your-secret-access-token".to_string())
