@@ -1,6 +1,8 @@
-use std::fs::File;
-use std::io::{Cursor, Read};
-use std::path::Path;
+use std::{
+    fs::File,
+    io::{Cursor, Read},
+    path::Path,
+};
 
 use anyhow::{Context, Result};
 use image::{ImageBuffer, Luma, codecs::bmp::BmpEncoder};

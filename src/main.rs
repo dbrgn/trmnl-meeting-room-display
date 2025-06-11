@@ -1,15 +1,17 @@
-mod bmp;
-mod calendar;
-mod database;
-mod server;
-
 use std::process;
 
 use anyhow::Context;
 use log::{error, info};
 
-use crate::database::init_database;
-use crate::server::{config::Config, start_server};
+use crate::{
+    database::init_database,
+    server::{config::Config, start_server},
+};
+
+mod bmp;
+mod calendar;
+mod database;
+mod server;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -54,17 +56,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::sync::Arc;
+    use std::{fs, sync::Arc};
 
-    use axum::body::Body;
-    use axum::http::{Request, StatusCode};
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
     use dotenv::dotenv;
     use tower::util::ServiceExt;
 
-    use crate::database::Database;
-    use crate::server::handlers::DisplayResponse;
-    use crate::server::test_app;
+    use crate::{
+        database::Database,
+        server::{handlers::DisplayResponse, test_app},
+    };
 
     // Helper function to get the access token for tests
     fn get_test_access_token() -> String {

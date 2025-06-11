@@ -1,5 +1,7 @@
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{Context, Result};
 use log::info;
